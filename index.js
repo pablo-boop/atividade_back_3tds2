@@ -22,20 +22,19 @@ const pool = new Pool({
 
 //Função para calcular idade
 function calcularIdade(data_nascimento) {
-    const nascimento = new Date(data_nascimento)
-    const atual = new Date();
-    const idade = atual.getFullYear - nascimento.getFullYear()
+    let atual = new Date();
+    let idade = atual.getFullYear() - data_nascimento.getFullYear()
+    let mesAtual = atual.getMonth();
+    let mesNascimento = data_nascimento.getMonth();
 
-    if (nascimento.getMonth() > atual.getMonth() || (nascimento.getMonth() === atual.getMonth() && nascimento.getDate() < atual.getDate())) {
+    if (mesNascimento > mesAtual || (mesNascimento == mesAtual && atual.getDate() < data_nascimento.getDate())) {
         idade--;
     }
     return idade;
 }
 
 //Função para calcular o signo
-function calcularSigno(data_nascimento) {
-    const dia = data_nascimento.getDate();
-    const mes = data_nascimento.getMonth();
+function calcularSigno(mes, dia) {
 
     if ((mes === 1 && dia >= 20) || (mes === 2 && dia <= 18)) {
         return 'Aquário';
@@ -82,15 +81,16 @@ app.get('/usuarios', async (req, res) => {
 app.post('/usuarios', async (req, res) => {
     try {
         const { nome, sobrenome, data_nascimento, email } = req.body;
-        const idade = calcularIdade(data_nascimento);
-        const signo = calcularSigno(data_nascimento);
 
-        await pool.query('INSERT INTO usuarios (nome, sobrenome, data_nascimento, email, idade, signo) VALUES ($1, $2, $3, $4, $5, $6)', [nome, sobrenome, data_nascimento, email, idade, signo]);
+        const nascimento = new Date(data_nascimento);
+        const idade = calcularIdade(nascimento);
+        const signo = calcularSigno(nascimento.getMonth() + 1, nascimento.getDate());
 
-        res.status(201).send({ message: 'Sucesso ao criar o usuário!' });
+        await pool.query('INSERT INTO usuarios (nome, sobrenome, data_nascimento, email, idade, signo) VALUES ($1, $2, $3, $4, $5, $6)', [nome, sobrenome, nascimento, email, idade, signo]);
+        res.status(201).send({ mensagem: 'Usuário adicionado com sucesso' });
     } catch (error) {
-        console.error('Erro ao criar o usuário:', error);
-        res.status(500).send({ message: 'Erro ao criar o usuário!' });
+        console.error('Erro ao adicionar usuário:', error);
+        res.status(500).send('Erro ao adicionar usuário');
     }
 });
 
@@ -111,11 +111,16 @@ app.delete('/usuarios/:id', async (req, res) => {
 app.put('/usuarios/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { nome, sobrenome, data_nascimento, email, idade, signo } = req.body;
-        await pool.query('UPDATE usuarios SET nome = $1, sobrenome = $2, data_nascimento = $3, email = $4, idade = $5, signo = $6 WHERE id = $7', [nome, sobrenome, data_nascimento, email, idade, signo, id])
+        const { nome, sobrenome, data_nascimento, email } = req.body;
+
+        let nascimento = new Date(data_nascimento);
+        let idade = calcularIdade(nascimento);
+        let signo = calcularSigno(nascimento.getMonth() + 1, nascimento.getDate());
+
+        await pool.query('UPDATE usuarios SET nome = $1, sobrenome = $2, data_nascimento = $3, email = $4, idade = $5, signo = $6 WHERE id = $7', [nome, sobrenome, nascimento, email, idade, signo, id])
         res.status(200).send({ message: 'Sucesso ao editar o usuario!' })
     } catch (error) {
-        console.error('Erro ao editar o usuário!');
+        console.error('Erro ao editar o usuário!', error);
         res.status(500).send({ message: 'Erro ao editar o usuário!' });
     }
 })
